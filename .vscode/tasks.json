@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build (MSBuild Debug x64)",
+            "type": "shell",
+            "command": ".\\.vscode\\set-startup.ps1; & 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\MSBuild\\Current\\Bin\\amd64\\MSBuild.exe' Processor.sln /p:Configuration=Debug /p:Platform=x64",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Run (Debug x64)",
+            "type": "shell",
+            "command": ".\\bin\\x64\\Debug\\Processor.exe",
+            "dependsOn": "Build (MSBuild Debug x64)",
+            "options": {
+                "env": {
+                    "PATH": "C:\\Program Files (x86)\\Rocket Software\\Visual COBOL\\bin64;${env:PATH}"
+                }
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build & Run (Debug x64)",
+            "type": "shell",
+            "command": ".\\bin\\x64\\Debug\\Processor.exe",
+            "dependsOn": "Build (MSBuild Debug x64)",
+            "dependsOrder": "sequence",
+            "options": {
+                "env": {
+                    "PATH": "C:\\Program Files (x86)\\Rocket Software\\Visual COBOL\\bin64;${env:PATH}"
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
