@@ -3,9 +3,12 @@ FROM debian:bookworm-slim
 # Instalar dependencias base
 RUN apt-get update && apt-get install -y \
     gnucobol \
+    libcob4-dev \
     libpq-dev \
     libssl-dev \
     zlib1g-dev \
+    libxml2 \
+    patchelf \
     git \
     make \
     automake \
@@ -29,8 +32,7 @@ RUN git clone https://github.com/opensourcecobol/Open-COBOL-ESQL.git /tmp/ocesql
 
 WORKDIR /build
 
-# Copiar los fuentes COBOL
-COPY src/ ./src/
+# build.sh se copia en la imagen; src/ se monta como volumen en runtime
 COPY build.sh .
 
 RUN chmod +x build.sh

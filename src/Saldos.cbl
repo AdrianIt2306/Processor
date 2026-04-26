@@ -6,27 +6,17 @@
 
            exec sql include sqlca end-exec.
 
-           exec sql begin declare section end-exec.
-       01 hv-customers      pic s9(9) comp-5 value 0.
-           exec sql end declare section end-exec.
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01 hv-customers      pic 9(9) value 0.
+           EXEC SQL END DECLARE SECTION END-EXEC.
 
        procedure division.
        inicio.
-           exec sql
-               connect to default
-           end-exec
-
-           if sqlcode not = 0
-               display "Error CONNECT SQLCODE=" sqlcode
-               display "SQLSTATE=" sqlstate
-               goback
-           end-if
-
-           exec sql
-               select count(*)
-                 into :hv-customers
-                 from customers
-           end-exec
+           EXEC SQL
+               SELECT COUNT(*)
+                 INTO :hv-customers
+                 FROM customers
+           END-EXEC
 
            if sqlcode not = 0
                display "Error SELECT SQLCODE=" sqlcode
@@ -34,8 +24,6 @@
            else
                display "CUSTOMERS total: " hv-customers
            end-if
-
-           exec sql disconnect end-exec
 
            goback.
 
