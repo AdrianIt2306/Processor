@@ -30,6 +30,7 @@
 
 
       *--- Mostrar todos los registros de customers ---*
+
            EXEC SQL
                DECLARE c1 CURSOR FOR
                    SELECT cust_id, cust_name, cust_last_name
@@ -38,18 +39,27 @@
 
            EXEC SQL OPEN c1 END-EXEC
 
+
+           EXEC SQL
+               FETCH c1 INTO
+                   :hv-cust-id,
+                   :hv-cust-name,
+                   :hv-cust-last
+           END-EXEC
+           display 'FETCH SQLCODE (primer fetch)=' sqlcode
+           
            perform until sqlcode not = 0
-               EXEC SQL
-                   FETCH c1 INTO
-                       :hv-cust-id,
-                       :hv-cust-name,
-                       :hv-cust-last
-               END-EXEC
-               display 'FETCH SQLCODE=' sqlcode
                if sqlcode = 0
                    display hv-cust-id ' |>'
                            hv-cust-name(1:20) '<|>'
                            hv-cust-last(1:20) '<'
+                   EXEC SQL
+                       FETCH c1 INTO
+                           :hv-cust-id,
+                           :hv-cust-name,
+                           :hv-cust-last
+                   END-EXEC
+                   display 'FETCH SQLCODE=' sqlcode
                end-if
            end-perform
 
