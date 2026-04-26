@@ -1,0 +1,8 @@
+services:
+  cobol-build:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Los binarios compilados quedan en ./dist en tu máquina Windows
+      - ./dist:/build/dist
