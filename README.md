@@ -1,114 +1,165 @@
-# COBOL Learning Environment
+# COBOL + PostgreSQL — Build con Docker para LPAR
 
-Entorno de desarrollo COBOL usando **Rocket Visual COBOL** y **VS Code**.
+Entorno de compilación COBOL con acceso a **PostgreSQL** usando **GnuCOBOL + OCESQL**.
+
+Los programas se compilan en un contenedor Docker y producen **binarios Linux portables** que se copian y ejecutan directamente en un LPAR — sin instalar nada en el destino.
 
 ---
 
-## Requisitos
+## Cómo funciona
 
-- [Rocket Visual COBOL](https://www.rocketsoftware.com) instalado
-- Visual Studio 2022 Build Tools
-- VS Code con la extensión de Rocket COBOL
+```
+┌─────────────────────────────────────┐
+│  Windows (desarrollo)               │
+│                                     │
+│  src/MiPrograma.cbl  ─────────┐     │
+│                               ▼     │
+│  Docker (debian:bookworm-slim)       │
+│  ├─ GnuCOBOL                  │     │
+│  ├─ OCESQL (precompilador SQL) │     │
+│  └─ build.sh                  │     │
+│       1. inyecta CONNECT/DISC  │     │
+│       2. ocesql (EXEC SQL→CALL)│     │
+│       3. cobc (compila)        │     │
+│       4. empaqueta .so         │     │
+│                               ▼     │
+│  dist/MiPrograma + dist/lib/  ─────►│
+└─────────────────────────────────────┘
+               │
+               ▼
+  LPAR Linux — ejecuta ./MiPrograma
+  (lee PG* env vars automáticamente)
+```
+
+**El programador solo escribe SQL de negocio.** La conexión a la base de datos es transparente: `build.sh` la inyecta en el binario durante la compilación.
+
+---
+
+## Requisitos (solo en Windows)
+
+- Docker Desktop
+- VS Code (opcional)
+
+No se necesita GnuCOBOL instalado localmente.
 
 ---
 
 ## Estructura del proyecto
 
 ```
-src/          ← Escribe todo tu código COBOL aquí
-data/         ← Archivos de datos (.dat, .txt, etc.)
-.vscode/      ← Configuración del editor (no tocar)
-bin/          ← Generado automáticamente al compilar
-obj/          ← Generado automáticamente al compilar
+src/          ← Programas COBOL (.cbl) — solo lógica de negocio
+dist/         ← Binarios Linux generados (copiar al LPAR)
+  lib/        ← Librerías .so empaquetadas (sin instalar en LPAR)
+Dockerfile    ← Imagen con GnuCOBOL + OCESQL + libpq
+build.sh      ← Script de compilación (inyección + ocesql + cobc)
+docker-compose.yml
 ```
 
 ---
 
-## Cómo trabajar
+## Escribir un programa COBOL con SQL
 
-### 1. Escribir código
-
-Todos los programas COBOL van en la carpeta `src/`. El archivo con el marcador `*> MAIN` al inicio es el punto de entrada del ejecutable:
+El programador **no gestiona conexiones**. Solo declara las host variables que necesita y escribe los `EXEC SQL`:
 
 ```cobol
-      *> MAIN
        identification division.
-       program-id. MiPrograma.
-       ...
+       program-id. clientes.
+
+       data division.
+       working-storage section.
+
+           exec sql include sqlca end-exec.
+
+           EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01 hv-total    pic 9(9) value 0.
+           EXEC SQL END DECLARE SECTION END-EXEC.
+
+       procedure division.
+       inicio.
+           EXEC SQL
+               SELECT COUNT(*) INTO :hv-total FROM customers
+           END-EXEC
+
+           if sqlcode not = 0
+               display "Error: " sqlcode
+           else
+               display "Total clientes: " hv-total
+           end-if
+
+           goback.
+
+       end program clientes.
 ```
 
-Solo un archivo puede tener `*> MAIN`. Si querés cambiar el programa principal, movés el marcador.
+`build.sh` inyecta automáticamente:
+- Variables de conexión `W-DB / W-USR / W-PWD` (en blanco → libpq usa `PG*`)
+- `CONNECT` al inicio, con `DISPLAY` de las variables de entorno detectadas
+- `DISCONNECT` antes de cada `GOBACK`
 
-### 2. Compilar y ejecutar
+---
 
-Presioná `Ctrl+Shift+B` — esto:
-1. Detecta automáticamente el programa principal (`*> MAIN`)
-2. Compila todos los `.cbl` de `src/`
-3. Ejecuta el resultado
+## Compilar
 
-### 3. Generar datos de prueba
-
-El script `generar-empleados.ps1` crea un archivo de datos aleatorio en `data/`:
-
-```powershell
-# 20 registros (por defecto)
-.\generar-empleados.ps1
-
-# Cantidad personalizada
-.\generar-empleados.ps1 -Cantidad 500
+```bash
+docker compose build   # solo la primera vez o si cambia Dockerfile
+docker compose run --rm cobol-build
 ```
+
+Los binarios quedan en `dist/`.
+
+---
+
+## Ejecutar en el LPAR
+
+Copia la carpeta `dist/` completa al LPAR (binario + `lib/`):
+
+```bash
+scp -r dist/ usuario@lpar:/store/programs/MIAPP/
+```
+
+Luego en el LPAR:
+
+```bash
+export PGHOST=mi-servidor
+export PGDATABASE=mi-base
+export PGUSER=mi-usuario
+export PGPASSWORD=mi-clave
+export PGPORT=5432          # opcional, default 5432
+
+/store/programs/MIAPP/clientes
+```
+
+Salida esperada:
+```
+DB PGHOST=mi-servidor
+DB PGDATABASE=mi-base
+DB PGUSER=mi-usuario
+DB PGPORT=5432
+DB PGPASSWORD=<definida>
+DB Conectando...
+DB Conexion exitosa.
+Total clientes: 000000042
+```
+
+> Los binarios incluyen todas las `.so` necesarias en `dist/lib/` con RPATH relativo.
+> **No se necesita instalar GnuCOBOL, libpq ni ninguna otra librería en el LPAR.**
 
 ---
 
 ## Agregar un nuevo programa
 
-1. Crear un archivo `.cbl` en `src/`
-2. Si debe ser el punto de entrada, agregar `*> MAIN` en la primera línea
-3. `Ctrl+Shift+B` lo detecta y compila automáticamente
+1. Crear `src/NuevoPrograma.cbl` con la estructura de arriba
+2. Ejecutar `docker compose run --rm cobol-build`
+3. Copiar `dist/NuevoPrograma` y `dist/lib/` al LPAR
 
 ---
 
-## Estructura de un programa COBOL básico
+## Diagnóstico de errores comunes
 
-```cobol
-      *> MAIN
-       identification division.
-       program-id. NombrePrograma.
-
-       environment division.
-
-       data division.
-       working-storage section.
-       01 ws-variable   pic x(20) value spaces.
-
-       procedure division.
-       inicio.
-           display "Hola COBOL"
-           goback.
-
-       end program NombrePrograma.
-```
-
----
-
-## Leer un archivo de texto
-
-```cobol
-       environment division.
-       input-output section.
-       file-control.
-           select mi-archivo
-               assign to "data/archivo.dat"
-               organization is line sequential.
-
-       data division.
-       file section.
-       fd mi-archivo.
-       01 registro   pic x(80).
-
-       procedure division.
-           open input mi-archivo
-           read mi-archivo
-           close mi-archivo
-           goback.
-```
+| Error | Causa | Solución |
+|-------|-------|----------|
+| `SQLSTATE=08001` | No puede conectar al servidor | Verificar `PGHOST`, `PGPORT`, red/firewall |
+| `SQLSTATE=08003` | `PGPASSWORD` no definida o vacía | `export PGPASSWORD=tu-clave` |
+| `SQLSTATE=28000` | Usuario/contraseña incorrectos | Verificar `PGUSER` y `PGPASSWORD` |
+| `SQLSTATE=3D000` | Base de datos no existe | Verificar `PGDATABASE` |
+| `libcob.so.4: not found` | Falta `dist/lib/` en el destino | Copiar `dist/lib/` junto al binario |
