@@ -30,11 +30,12 @@ RUN git clone https://github.com/opensourcecobol/Open-COBOL-ESQL.git /tmp/ocesql
     && ldconfig \
     && rm -rf /tmp/ocesql
 
+# Python 3 (para build.py)
+RUN apt-get update && apt-get install -y python3 && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /build
 
-# build.sh se copia en la imagen; src/ se monta como volumen en runtime
-COPY build.sh .
+# build.py se copia en la imagen; src/ se monta como volumen en runtime
+COPY build.py .
 
-RUN chmod +x build.sh
-
-ENTRYPOINT ["/bin/bash", "build.sh"]
+ENTRYPOINT ["python3", "build.py"]

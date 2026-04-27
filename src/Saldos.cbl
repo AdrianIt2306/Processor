@@ -7,10 +7,10 @@
            exec sql include sqlca end-exec.
 
            EXEC SQL BEGIN DECLARE SECTION END-EXEC.
-       01 hv-customers      pic 9(9) value 0.
-       01 hv-cust-id        pic 9(9) value 0.
-       01 hv-cust-name      pic x(100) value spaces.
-       01 hv-cust-last      pic x(100) value spaces.
+       01 hv-customers      PIC 9(9)   VALUE 0.
+       01 hv-cust-id        PIC 9(10)  VALUE 0.
+       01 hv-cust-name      PIC X(100) VALUE SPACES.
+       01 hv-cust-last      PIC X(100) VALUE SPACES.
            EXEC SQL END DECLARE SECTION END-EXEC.
 
        procedure division.
@@ -39,6 +39,11 @@
 
            EXEC SQL OPEN c1 END-EXEC
 
+           if sqlcode not = 0
+               display "OPEN CURSOR SQLCODE=" sqlcode
+               display "OPEN CURSOR SQLSTATE=" sqlstate
+               stop run
+           end-if
 
            EXEC SQL
                FETCH c1 INTO
@@ -65,6 +70,6 @@
 
            EXEC SQL CLOSE c1 END-EXEC
 
-           goback.
+           stop run.
 
        end program saldos.

@@ -8,5 +8,5 @@ services:
       - ./src:/build/src
       # Los binarios compilados quedan en ./dist en tu máquina Windows
       - ./dist:/build/dist
-      # build.sh montado para que los cambios no requieran rebuild de imagen
-      - ./build.sh:/build/build.sh
+      # build.py montado para que los cambios no requieran rebuild de imagen
+      - ./build.py:/build/build.py
